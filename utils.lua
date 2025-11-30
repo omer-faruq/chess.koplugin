@@ -151,7 +151,7 @@ function Utils.writer(fd, eol, dbg)
         end
         local n = C.write(fd, line, #line)
         if n ~= #line then
-            local err = C.errno
+            local err = ffi.errno()
             Logger.info((dbg or "") .. " write error: n=" .. tostring(n)
                 .. " errno=" .. tostring(err) .. " (" .. ffi.string(C.strerror(err)) .. ")")
             return
