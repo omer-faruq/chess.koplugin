@@ -32,10 +32,10 @@ To install Kochess, follow these steps:
 4.    **Engine (optional):** To play against the computer, copy a UCI-compatible engine binary (for example Stockfish) into the plugin's `bin` folder and name it `stockfish`:
 
      * `koreader/plugins/chess.koplugin/bin/stockfish`
+     
+Kochess will automatically try to start this engine on launch. If no working engine is present, you can still play Human vs Human and load/save games for analysis, but the **Robot** player options and engine settings will be hidden.
 
-     Kochess will automatically try to start this engine on launch. If no working engine is present, you can still play Human vs Human and load/save games for analysis, but the **Robot** player options and engine settings will be hidden.
-
-     The official repository of this plugin typically ships with a prebuilt `stockfish` binary already placed in `plugins/chess.koplugin/bin/stockfish`. That binary has been built and tested on Kobo Forma and Kindle Touch (both ARMv7). You are free to replace it with your own build if you want to tune performance or use a different Stockfish version.
+The official repository of this plugin typically ships with a prebuilt `stockfish` binary already placed in `plugins/chess.koplugin/bin/stockfish`. That binary has been built and tested on Kobo Forma and Kindle Touch (both ARMv7). You are free to replace it with your own build if you want to tune performance or use a different Stockfish version.
 
 ---
 
