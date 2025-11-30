@@ -9,6 +9,7 @@ local lfs = require("libs/libkoreader-lfs")
 local Font = require("ui/font")
 local Size = require("ui/size")
 local Geometry = require("ui/geometry")
+local DataStorage = require("datastorage")
 
 -- UI Widgets
 local Event = require("ui/event")
@@ -39,9 +40,67 @@ local SettingsWidget = require("settingswidget")
 local Logger = require("logger")
 local _ = require("gettext") -- Localization function
 
+local function getPluginPath()
+    local source = debug.getinfo(1, "S").source
+    if source:sub(1, 1) == "@" then
+        source = source:sub(2)
+    end
+    local dir = source:match("(.*/)main%.lua$") or source:match("(.*\\)main%.lua$")
+    if dir then
+        dir = dir:gsub("\\", "/")
+        return dir:sub(-1) == "/" and dir:sub(1, -2) or dir
+    end
+    return DataStorage:getDataDir() .. "/plugins/chess.koplugin"
+end
+
+local PLUGIN_PATH = getPluginPath()
+
+local function copyFile(src, dst)
+    local src_f = io.open(src, "rb")
+    if not src_f then
+        return false
+    end
+    local data = src_f:read("*a")
+    src_f:close()
+    local dst_f = io.open(dst, "wb")
+    if not dst_f then
+        return false
+    end
+    dst_f:write(data)
+    dst_f:close()
+    return true
+end
+
+local function ensureChessIconsInstalled()
+    local src_dir = PLUGIN_PATH .. "/icons/chess"
+    local src_mode = lfs.attributes(src_dir, "mode")
+    if src_mode ~= "directory" then
+        return
+    end
+    local data_icons_dir = DataStorage:getDataDir() .. "/icons"
+    if lfs.attributes(data_icons_dir, "mode") ~= "directory" then
+        lfs.mkdir(data_icons_dir)
+    end
+    local dest_dir = data_icons_dir .. "/chess"
+    if lfs.attributes(dest_dir, "mode") == "directory" then
+        return
+    end
+    lfs.mkdir(dest_dir)
+    for entry in lfs.dir(src_dir) do
+        if entry ~= "." and entry ~= ".." then
+            local src_path = src_dir .. "/" .. entry
+            local mode = lfs.attributes(src_path, "mode")
+            if mode == "file" then
+                local dst_path = dest_dir .. "/" .. entry
+                copyFile(src_path, dst_path)
+            end
+        end
+    end
+end
+
 -- Configuration Constants
 local DEFAULT_TIME_MINUTES = 30
-local UCI_ENGINE_PATH = "resources/bin/stockfish"
+local UCI_ENGINE_PATH = PLUGIN_PATH .. "/bin/stockfish"
 local BACKGROUND_COLOR = Blitbuffer.COLOR_WHITE
 local PGN_LOG_FONT = "smallinfofont"
 local PGN_LOG_FONT_SIZE = 14
@@ -134,7 +193,9 @@ end
 -- Entry point for starting a new chess game.
 -- Initializes all game components (logic, engine, board) and builds the UI.
 function Kochess:startGame()
+    Logger.info("Kochess:startGame() invoked from main menu")
     dbg("Starting new chess game session", "GAME START")
+    ensureChessIconsInstalled()
     self:initializeGameLogic()
     self:initializeEngine()
     self:initializeBoard()
@@ -168,9 +229,12 @@ end
 --- Kochess:initializeEngine()
 -- Spawns and configures the UCI chess engine (e.g., Stockfish).
 function Kochess:initializeEngine()
+    Logger.info("Kochess:initializeEngine() starting, engine path: " .. tostring(UCI_ENGINE_PATH))
     dbg("Initializing UCI engine and setting up event listeners", "ENGINE INIT")
-    self.engine = Uci.UCIEngine.spawn(UCI_ENGINE_PATH, {})
+    -- NOTE: pass the engine path as argv[0] so execvp receives a valid argument list
+    self.engine = Uci.UCIEngine.spawn(UCI_ENGINE_PATH, { UCI_ENGINE_PATH })
     if not self.engine then
+        Logger.info("Kochess:initializeEngine() failed to spawn engine at path")
         dbg("Failed to spawn UCI engine at: " .. UCI_ENGINE_PATH, "ERROR")
         UIManager:show(infoMessage:new{
             text = _("Error"),
@@ -181,7 +245,24 @@ function Kochess:initializeEngine()
 
     -- Setup event listeners for UCI engine communication
     self.engine:on("uciok", function()
+        Logger.info("Kochess: UCI engine signaled uciok (engine ready)")
         dbg("UCI: uciok received (engine is ready)", "ENGINE")
+
+        -- Disable NNUE to avoid requiring an external .nnue network file on Kobo.
+        local has_nnue_opt = self.engine.state.options
+            and (self.engine.state.options["Use NNUE"] ~= nil)
+        if has_nnue_opt then
+            Logger.info("Kochess: Disabling NNUE (advertised option, setoption Use NNUE = false)")
+        else
+            Logger.info("Kochess: Disabling NNUE (blind setoption, option not advertised)")
+        end
+
+        if self.engine.setOption then
+            self.engine:setOption("Use NNUE", "false")
+        else
+            self.engine.send("setoption name Use NNUE value false")
+        end
+
         self:updatePgnLogInitialText() -- Update PGN log with engine name/author
     end)
 
@@ -206,6 +287,7 @@ function Kochess:initializeEngine()
     end)
 
     self.engine:on("eof", function()
+        Logger.info("Kochess: UCI engine EOF (process terminated)")
         dbg("UCI: eof (engine process terminated)", "ENGINE")
         -- Potentially display an error message or attempt to restart the engine
         UIManager:show(infoMessage:new{
@@ -221,7 +303,7 @@ end
 --- Kochess:updatePgnLogInitialText()
 -- Updates the PGN log widget with initial welcome message and engine information.
 function Kochess:updatePgnLogInitialText()
-    local text = _("Welcome to Kochess!\nWhite to play.")
+    local text = _("Welcome to Chess Game!\nWhite to play.")
     if self.engine and self.engine.state.uciok then
         text = text .. "\nEngine ready: " .. (self.engine.state.id_name or "")
         if self.engine.state.id_author then
@@ -349,7 +431,7 @@ function Kochess:buildUILayout()
     if toolbar_width > self.full_width / 3 then toolbar_width = math.floor(self.full_width / 3) end
 
     local pgn_log_width = self.full_width - toolbar_width
-    self.pgn_log = self:createPgnLogWidget(_("Welcome to Kochess!\nWhite to play."), pgn_log_width, log_h)
+    self.pgn_log = self:createPgnLogWidget(_("Welcome to Chess Game!\nWhite to play."), pgn_log_width, log_h)
 
     -- Wrap PGN log in a centered frame
     local log_frame = FrameContainer:new{
@@ -632,6 +714,40 @@ function Kochess:onMoveExecuted(move)
     dbg("Chess move executed: " .. move.san, "GAME")
     self.running = true -- Game is now officially running
     self:updatePgnLog() -- Update the PGN display
+
+    -- Check for game termination (checkmate or various draw conditions)
+    local over, result, reason = self.game.game_over()
+    if over then
+        -- Stop engine and timer when the game is finished
+        self:stopUCI()
+        if self.timer then
+            self.timer:stop()
+        end
+        self.running = false
+
+        local msg
+        if result == "1-0" then
+            msg = _("White wins") .. " (" .. _("checkmate") .. ")"
+        elseif result == "0-1" then
+            msg = _("Black wins") .. " (" .. _("checkmate") .. ")"
+        else
+            msg = _("Draw")
+            if reason then
+                msg = msg .. " (" .. reason .. ")"
+            end
+        end
+
+        UIManager:show(infoMessage:new{
+            text = _("Game over") .. "\n" .. msg,
+        })
+
+        self:updateTimerDisplay()
+        self:updatePlayerDisplay()
+        UIManager:setDirty(self, "ui")
+        return
+    end
+
+    -- If the game is not over, continue to the next player's turn
     self:launchNextMove() -- Prepare for the next player's turn
     UIManager:setDirty(self, "ui") -- Request UI redraw
 end

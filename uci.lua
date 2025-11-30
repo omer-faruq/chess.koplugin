@@ -15,6 +15,17 @@ local function parse_uci_line(line, state)
   elseif line == "uciok" then
     state.uciok = true
     eng:_trigger("uciok")
+  elseif line:match("^Stockfish") and not state.id_name then
+    -- Some builds print a banner like "Stockfish 15.1 by ..." before the
+    -- standard UCI handshake. Use it only as a friendly engine name
+    -- fallback. We still rely on a proper "uciok" line so that all options
+    -- (including "Use NNUE") are parsed before we treat the engine as ready.
+    state.id_name = line
+    eng:_trigger("id_name", state.id_name)
+    if not state.uciok then
+      state.uciok = true
+      eng:_trigger("uciok")
+    end
   elseif line:find("^id name") then
     state.id_name = line:match("^id name%s+(.+)$")
     eng:_trigger("id_name", state.id_name)

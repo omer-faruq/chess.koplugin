@@ -17,8 +17,8 @@ ffi.cdef[[
     int setpriority(int, int, int);
     ssize_t read(int, void *, size_t);
     ssize_t write(int, const void *, size_t);
+    int poll(struct pollfd *fds, unsigned long nfds, int timeout);
     char *strerror(int);
-    int errno;
     ]]
 
     local SCHED_BATCH = 3
@@ -47,13 +47,17 @@ function Utils.execInSubProcess(cmd, args, with_pipes, double_fork)
 
   if with_pipes then
     local p1 = ffi.new("int[2]")
-    if C.pipe(p1) ~= 0 then return false, "pipe1: " .. ffi.string(C.strerror(C.errno)) end
+    if C.pipe(p1) ~= 0 then
+      local err = ffi.errno()
+      return false, "pipe1: " .. ffi.string(C.strerror(err))
+    end
     p2c_r, p2c_w = p1[0], p1[1]
 
     local p2 = ffi.new("int[2]")
     if C.pipe(p2) ~= 0 then
       C.close(p2c_r); C.close(p2c_w)
-      return false, "pipe2: " .. ffi.string(C.strerror(C.errno))
+      local err = ffi.errno()
+      return false, "pipe2: " .. ffi.string(C.strerror(err))
     end
     c2p_r, c2p_w = p2[0], p2[1]
   end
@@ -61,7 +65,8 @@ function Utils.execInSubProcess(cmd, args, with_pipes, double_fork)
   local pid = C.fork()
   if pid < 0 then
     if with_pipes then C.close(p2c_r); C.close(p2c_w); C.close(c2p_r); C.close(c2p_w) end
-    return false, "fork: " .. ffi.string(C.strerror(C.errno))
+    local err = ffi.errno()
+    return false, "fork: " .. ffi.string(C.strerror(err))
   end
 
   if pid == 0 then
@@ -82,7 +87,8 @@ function Utils.execInSubProcess(cmd, args, with_pipes, double_fork)
     for i = 1, argc do argv[i - 1] = ffi.cast("char *", args[i]) end
     argv[argc] = nil
     C.execvp(cmd, argv)
-    io.stderr:write("execvp(", cmd, ") failed: ", ffi.string(C.strerror(C.errno)), "\n")
+    local err = ffi.errno()
+    io.stderr:write("execvp(", cmd, ") failed: ", ffi.string(C.strerror(err)), "\n")
     io.stderr:write("kill", "\n")
     C._exit(127)
   end
@@ -111,6 +117,9 @@ function Utils.reader(fd, action, dbg)
         local pending = chunk
         for line in pending:gmatch("(.-)\n") do
             Logger.dbg((dbg or "") .. "< " .. line)
+            if dbg and dbg:find("Kochess DBG UCI") then
+                Logger.info((dbg or "") .. " < " .. line)
+            end
             if action then
                 action(line)
             end
@@ -119,6 +128,9 @@ function Utils.reader(fd, action, dbg)
         local leftover = pending:match("([^\n]*)$") or ""
         if #leftover > 0 then
             Logger.dbg((dbg or "") .. " < " .. leftover)
+            if dbg and dbg:find("Kochess DBG UCI") then
+                Logger.info((dbg or "") .. " < " .. leftover)
+            end
             if action then
                 action(leftover)
             end
@@ -134,12 +146,19 @@ function Utils.writer(fd, eol, dbg)
     local _writer = function (cmd)
         local line = cmd .. (eol and "\n" or "")
         Logger.dbg((dbg or "") .. " > " .. line)
+        if dbg and dbg:find("Kochess DBG UCI") then
+            Logger.info((dbg or "") .. " > " .. line)
+        end
         local n = C.write(fd, line, #line)
-        assert(n == #line, "write error")
+        if n ~= #line then
+            local err = C.errno
+            Logger.info((dbg or "") .. " write error: n=" .. tostring(n)
+                .. " errno=" .. tostring(err) .. " (" .. ffi.string(C.strerror(err)) .. ")")
+            return
+        end
     end
     return _writer
 end
-
 
 
 return Utils

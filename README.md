@@ -1,6 +1,6 @@
 # Kochess User Manual
 
-Kochess is a simple yet functional chess application designed for your device. It allows you to play against a built-in UCI chess engine (like Stockfish), load and save games in PGN format, and review past moves.
+Kochess is a simple yet functional chess application designed for your device. It allows you to play against a UCI chess engine (like Stockfish), load and save games in PGN format, and review past moves.
 
 ---
 
@@ -19,13 +19,23 @@ Upon launching, a new game will begin automatically with the chess engine initia
 
 To install Kochess, follow these steps:
 
-1.    Plugin Installation: Copy the Kochess plugin directory into your KOReader installation. The plugin should be located at: `koreader/plugins/kochess.koplugin` (Replace koreader with your base KOReader installation directory).
+1.    **Plugin installation:** Copy the Kochess plugin directory into your KOReader installation. The plugin directory name is `chess.koplugin`, so on most setups it will live at:
 
-2.    Icons: For chess piece images to display correctly, the icons directory must be copied or moved to: `koreader/resources/icons/chess`
+     * Generic: `koreader/plugins/chess.koplugin`
+     * Kobo: `/mnt/onboard/.adds/koreader/plugins/chess.koplugin`
+     * Kindle: `/mnt/us/koreader/plugins/chess.koplugin`
 
-3.    Games: Your saved game files (PGN) can be stored in any convenient location on your device.
+2.    **Icons:** Chess piece icons are bundled with the plugin under `chess.koplugin/icons/chess`. On first start, Kochess automatically copies them into KOReader's data icons directory (for example `.../koreader/icons/chess`) so that the UI can find them. Normally you do **not** need to copy icons manually.
 
-4.    Engine: Chess engine (`UCI` interface compatible) must be copied or moved as `koreader/resources/bin/stockfish`. This step is optional. Without a working installed chess engine, Kochess would still allow to play as human and load / save games for analysis.
+3.    **Games:** Your saved game files (PGN) can be stored in any convenient location on your device.
+
+4.    **Engine (optional):** To play against the computer, copy a UCI-compatible engine binary (for example Stockfish) into the plugin's `bin` folder and name it `stockfish`:
+
+     * `koreader/plugins/chess.koplugin/bin/stockfish`
+
+     Kochess will automatically try to start this engine on launch. If no working engine is present, you can still play Human vs Human and load/save games for analysis, but the **Robot** player options and engine settings will be hidden.
+
+     The official repository of this plugin typically ships with a prebuilt `stockfish` binary already placed in `plugins/chess.koplugin/bin/stockfish`. That binary has been built and tested on Kobo Forma and Kindle Touch (both ARMv7). You are free to replace it with your own build if you want to tune performance or use a different Stockfish version.
 
 ---
 
@@ -58,7 +68,7 @@ When a pawn reaches the last rank, a **promotion dialog** will appear, prompting
 
 ### Engine's Turn
 
-When it's the engine's turn, the application will automatically calculate and make its move. You can force the engine to play by hitting the `checkmark` button in the **Status Bar**.
+When a player is configured as **Robot** and a working engine is available, Kochess automatically calculates and makes the engine's move when it is that side's turn. You can also force the engine to move immediately by hitting the `checkmark` button in the **Status Bar**.
 
 ### Game State
 
@@ -66,6 +76,8 @@ The **Status Bar** will show the current player's turn and remaining time:
 * **⤆**: White's turn
 * **⤇**: Black's turn
 * **⤊**: Game is paused or in an initial/reset state.
+
+When the game ends (checkmate or one of the draw conditions such as stalemate, insufficient material, threefold repetition, or the fifty-move rule), Kochess will stop the clocks and the engine, and show a **Game over** popup with the final result (for example `1-0`, `0-1`, or `1/2-1/2` and a short reason for draws).
 
 ---
 
@@ -105,11 +117,55 @@ The toolbar, located next to the PGN log, provides several useful functions:
 
 ## Settings
 
-While the code snippet doesn't detail a full settings menu, it references a `SettingsWidget`. It's likely that future versions or a more complete implementation will include options to configure:
+Kochess provides a settings dialog (accessed from the in-game menu) that allows you to configure how you want to play:
 
-* **Player type:** Choosing color to be a human or engine player (if available)
-* **Engine Difficulty:** Adjusting the strength of the UCI engine (e.g., Stockfish).
-* **Time Controls:** Modifying the initial time and increment for players.
+* **Player type:** Choose, separately for White and Black, whether the side is controlled by a **Human** or by the **Robot** engine. If the engine is not available or failed to start, these options are hidden and both sides are Human.
+* **Engine strength:** When the engine exposes a `UCI_Elo` option (as Stockfish does), you can adjust the engine's approximate playing strength via an ELO slider.
+* **Time controls:** Configure base time and increment (per move) independently for White and Black. These controls affect the timers shown in the Status Bar.
+
+---
+
+## Stockfish build notes
+
+<details>
+<summary>Build notes for the bundled Kobo/Kindle Stockfish binary</summary>
+
+The `bin/stockfish` binary included with this plugin was built from a recent Stockfish release on an x86_64 Ubuntu system (WSL) using the Zig C++ compiler, targeting ARMv7 Linux so that it runs on both Kobo Forma and Kindle Touch.
+
+To install Zig (example for x86_64 Linux/WSL), you can do something like:
+
+```bash
+cd ~
+wget https://ziglang.org/builds/zig-x86_64-linux-0.16.0-dev.1484+d0ba6642b.tar.xz
+tar xf zig-x86_64-linux-0.16.0-dev.1484+d0ba6642b.tar.xz
+mkdir -p ~/bin
+ln -s ~/zig-x86_64-linux-0.16.0-dev.1484+d0ba6642b/zig ~/bin/zig  # create ~/bin first if it does not exist
+export PATH="$HOME/bin:$PATH"
+```
+
+Adjust the URL/version if a newer Zig release is available.
+
+The exact commands to build Stockfish may vary depending on the Stockfish version you use, but the general idea is:
+
+```bash
+# Inside the Stockfish source tree (example path)
+cd ~/Stockfish/src
+
+make clean
+
+# Example: build an ARMv7 binary with Zig C++ and NNUE embedding disabled
+make build ARCH=general-32 \
+  CXX="zig c++ -target arm-linux-musleabi" \
+  CXXFLAGS_EXTRA="-march=armv7-a -marm -fno-exceptions -fno-rtti -Wno-error=date-time -DNNUE_EMBEDDING_OFF"
+
+# After the build finishes, copy the resulting binary to the plugin:
+cp stockfish /path/to/koreader/plugins/chess.koplugin/bin/stockfish
+```
+
+Please refer to the official Stockfish documentation for more exhaustive and up-to-date build instructions; the example above is only meant to document roughly how the bundled Kobo/Kindle binary was produced.
+
+Note that on Android, external binaries placed under the KOReader data directory are typically on a filesystem mounted with `noexec`, so even a correctly built `stockfish` binary cannot be executed from there.
+</details>
 
 ---
 

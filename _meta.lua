@@ -1,6 +1,7 @@
 local _ = require("gettext")
 return {
-    name = "Kochess",
+    name = "kochess",
     fullname = _("Koreader Chess"),
     description = _([[Chess game for Koreader]]),
+    version = "1.0.0",
 }
