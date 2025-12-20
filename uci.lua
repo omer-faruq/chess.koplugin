@@ -1,5 +1,34 @@
 local Logger = require("logger")
-local Utils = require("utils")
+
+local function loadKochessUtils()
+    local source = ""
+    if debug and debug.getinfo then
+        local info = debug.getinfo(1, "S")
+        source = (info and info.source) or ""
+    end
+    if source:sub(1, 1) == "@" then
+        source = source:sub(2)
+    end
+    local dir = source:match("(.*/)") or source:match("(.*\\)")
+    if dir then
+        dir = dir:gsub("\\", "/")
+        local path = dir .. "utils.lua"
+        local ok, chunk = pcall(loadfile, path)
+        if ok and chunk then
+            local ok2, mod = pcall(chunk)
+            if ok2 and mod then
+                return mod
+            else
+                Logger.info("Kochess UCI: error running local utils.lua chunk: " .. tostring(mod))
+            end
+        else
+            Logger.info("Kochess UCI: failed to load local utils.lua from " .. tostring(path) .. ": " .. tostring(chunk))
+        end
+    end
+    return require("utils")
+end
+
+local Utils = loadKochessUtils()
 
 local M = {}
 

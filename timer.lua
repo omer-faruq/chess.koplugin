@@ -1,7 +1,32 @@
 -- chess_timer.lua
 -- A Lua module for a chess timer that counts down from a specified duration for each player.
 local Chess = require("chess/src/chess")
-local Utils = require("utils")
+
+local function loadKochessUtils()
+    local source = ""
+    if debug and debug.getinfo then
+        local info = debug.getinfo(1, "S")
+        source = (info and info.source) or ""
+    end
+    if source:sub(1, 1) == "@" then
+        source = source:sub(2)
+    end
+    local dir = source:match("(.*/)") or source:match("(.*\\)")
+    if dir then
+        dir = dir:gsub("\\", "/")
+        local path = dir .. "utils.lua"
+        local ok, chunk = pcall(loadfile, path)
+        if ok and chunk then
+            local ok2, mod = pcall(chunk)
+            if ok2 and mod then
+                return mod
+            end
+        end
+    end
+    return require("utils")
+end
+
+local Utils = loadKochessUtils()
 
 local Timer = {}
 local TIMER_TIMEOUT = 10
