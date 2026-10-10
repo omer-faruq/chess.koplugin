@@ -25,7 +25,7 @@ To install Kochess, follow these steps:
      * Kobo: `/mnt/onboard/.adds/koreader/plugins/chess.koplugin`
      * Kindle: `/mnt/us/koreader/plugins/chess.koplugin`
 
-2.    **Icons:** Chess piece icons are bundled with the plugin under `chess.koplugin/icons/chess`. On first start, Kochess automatically copies them into KOReader's data icons directory (for example `.../koreader/icons/chess`) so that the UI can find them. Normally you do **not** need to copy icons manually.
+2.    **Icons:** Chess piece icons are bundled with the plugin under `chess.koplugin/icons/chess`. On every start, Kochess copies them (only if missing or changed) into its own folder in KOReader's data icons directory (for example `.../koreader/icons/kochess`) so that the UI can find them. A dedicated folder is used so that other plugins writing to `icons/chess` (such as Board Games) can't replace or break Kochess's pieces. Normally you do **not** need to copy icons manually.
 
 3.    **Games:** Your saved game files (PGN) can be stored in any convenient location on your device.
 

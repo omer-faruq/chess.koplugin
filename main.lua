@@ -54,6 +54,7 @@ local function getPluginPath()
 end
 
 local PLUGIN_PATH = getPluginPath()
+local ICON_DIR = "kochess" -- must match the icon names in board.lua
 
 local function copyFile(src, dst)
     local src_f = io.open(src, "rb")
@@ -71,6 +72,21 @@ local function copyFile(src, dst)
     return true
 end
 
+local function readFile(path)
+    local f = io.open(path, "rb")
+    if not f then
+        return nil
+    end
+    local data = f:read("*a")
+    f:close()
+    return data
+end
+
+-- Icons are copied into a folder of our own ("icons/kochess") rather than the
+-- generic "icons/chess": other plugins (e.g. boardgames.koplugin) write their
+-- own piece sets there, and some of them don't ship the "empty" square icon,
+-- which then shows up as KOReader's "icon not found" placeholder.
+-- Files are re-synced on every start, so plugin updates reach the copies too.
 local function ensureChessIconsInstalled()
     local src_dir = PLUGIN_PATH .. "/icons/chess"
     local src_mode = lfs.attributes(src_dir, "mode")
@@ -81,18 +97,19 @@ local function ensureChessIconsInstalled()
     if lfs.attributes(data_icons_dir, "mode") ~= "directory" then
         lfs.mkdir(data_icons_dir)
     end
-    local dest_dir = data_icons_dir .. "/chess"
-    if lfs.attributes(dest_dir, "mode") == "directory" then
-        return
+    local dest_dir = data_icons_dir .. "/" .. ICON_DIR
+    if lfs.attributes(dest_dir, "mode") ~= "directory" then
+        lfs.mkdir(dest_dir)
     end
-    lfs.mkdir(dest_dir)
     for entry in lfs.dir(src_dir) do
         if entry ~= "." and entry ~= ".." then
             local src_path = src_dir .. "/" .. entry
             local mode = lfs.attributes(src_path, "mode")
             if mode == "file" then
                 local dst_path = dest_dir .. "/" .. entry
-                copyFile(src_path, dst_path)
+                if readFile(src_path) ~= readFile(dst_path) then
+                    copyFile(src_path, dst_path)
+                end
             end
         end
     end
@@ -1035,10 +1052,10 @@ function Kochess:openPromotionDialog(from_sq, to_sq, pawn_color)
 
     -- Define icons for the promotion pieces (matching board.lua's structure)
     local promotion_icons = {
-        [Chess.QUEEN]  = { [Chess.WHITE] = "chess/wQ", [Chess.BLACK] = "chess/bQ" },
-        [Chess.ROOK]   = { [Chess.WHITE] = "chess/wR", [Chess.BLACK] = "chess/bR" },
-        [Chess.BISHOP] = { [Chess.WHITE] = "chess/wB", [Chess.BLACK] = "chess/bB" },
-        [Chess.KNIGHT] = { [Chess.WHITE] = "chess/wN", [Chess.BLACK] = "chess/bN" },
+        [Chess.QUEEN]  = { [Chess.WHITE] = "kochess/wQ", [Chess.BLACK] = "kochess/bQ" },
+        [Chess.ROOK]   = { [Chess.WHITE] = "kochess/wR", [Chess.BLACK] = "kochess/bR" },
+        [Chess.BISHOP] = { [Chess.WHITE] = "kochess/wB", [Chess.BLACK] = "kochess/bB" },
+        [Chess.KNIGHT] = { [Chess.WHITE] = "kochess/wN", [Chess.BLACK] = "kochess/bN" },
     }
 
     local dialog = InputDialog:new{

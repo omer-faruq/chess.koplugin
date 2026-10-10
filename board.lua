@@ -14,13 +14,13 @@ local BOARD_SIZE = 8
 local SELECTED_BORDER = 5
 
 local icons = {
-    empty = "chess/empty",
-    [Chess.PAWN]   = { [Chess.WHITE] = "chess/wP", [Chess.BLACK] = "chess/bP" },
-    [Chess.KNIGHT] = { [Chess.WHITE] = "chess/wN", [Chess.BLACK] = "chess/bN" },
-    [Chess.BISHOP] = { [Chess.WHITE] = "chess/wB", [Chess.BLACK] = "chess/bB" },
-    [Chess.ROOK]   = { [Chess.WHITE] = "chess/wR", [Chess.BLACK] = "chess/bR" },
-    [Chess.QUEEN]  = { [Chess.WHITE] = "chess/wQ", [Chess.BLACK] = "chess/bQ" },
-    [Chess.KING]   = { [Chess.WHITE] = "chess/wK", [Chess.BLACK] = "chess/bK" },
+    empty = "kochess/empty",
+    [Chess.PAWN]   = { [Chess.WHITE] = "kochess/wP", [Chess.BLACK] = "kochess/bP" },
+    [Chess.KNIGHT] = { [Chess.WHITE] = "kochess/wN", [Chess.BLACK] = "kochess/bN" },
+    [Chess.BISHOP] = { [Chess.WHITE] = "kochess/wB", [Chess.BLACK] = "kochess/bB" },
+    [Chess.ROOK]   = { [Chess.WHITE] = "kochess/wR", [Chess.BLACK] = "kochess/bR" },
+    [Chess.QUEEN]  = { [Chess.WHITE] = "kochess/wQ", [Chess.BLACK] = "kochess/bQ" },
+    [Chess.KING]   = { [Chess.WHITE] = "kochess/wK", [Chess.BLACK] = "kochess/bK" },
 }
 
 local Board = FrameContainer:extend{
